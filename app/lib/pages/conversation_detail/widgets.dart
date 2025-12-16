@@ -334,6 +334,7 @@ class GetEditTextField extends StatefulWidget {
   final FocusNode? focusNode;
   final String searchQuery;
   final int currentResultIndex;
+  final Function(int)? onMatchCountChanged;
 
   const GetEditTextField({
     super.key,
@@ -344,6 +345,7 @@ class GetEditTextField extends StatefulWidget {
     required this.focusNode,
     this.searchQuery = '',
     this.currentResultIndex = -1,
+    this.onMatchCountChanged,
   });
 
   @override
@@ -351,8 +353,48 @@ class GetEditTextField extends StatefulWidget {
 }
 
 class _GetEditTextFieldState extends State<GetEditTextField> {
+  List<GlobalKey> _matchKeys = [];
+  int _previousResultIndex = -1;
+
+  @override
+  void didUpdateWidget(GetEditTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Scroll to current result when it changes
+    if (widget.currentResultIndex != _previousResultIndex &&
+        widget.currentResultIndex >= 0 &&
+        widget.searchQuery.isNotEmpty) {
+      _previousResultIndex = widget.currentResultIndex;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToCurrentMatch();
+      });
+    }
+  }
+
+  void _scrollToCurrentMatch() {
+    if (widget.currentResultIndex < 0 || widget.currentResultIndex >= _matchKeys.length) {
+      return;
+    }
+
+    final matchKey = _matchKeys[widget.currentResultIndex];
+    final context = matchKey.currentContext;
+
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOutCubic,
+        alignment: 0.35,
+      );
+    }
+  }
+
   List<InlineSpan> _buildHighlightedText(String text, String searchQuery, int currentResultIndex) {
     if (searchQuery.isEmpty) {
+      _matchKeys.clear();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onMatchCountChanged?.call(0);
+      });
       return [TextSpan(text: text, style: widget.style)];
     }
 
@@ -364,6 +406,12 @@ class _GetEditTextFieldState extends State<GetEditTextField> {
     int matchIndex = 0;
     final matches = RegExp(RegExp.escape(lowerQuery), caseSensitive: false).allMatches(lowerText);
 
+    _matchKeys = List.generate(matches.length, (index) => GlobalKey());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onMatchCountChanged?.call(matches.length);
+    });
+
     for (final match in matches) {
       final matchStart = match.start;
       final matchEnd = match.end;
@@ -372,15 +420,26 @@ class _GetEditTextFieldState extends State<GetEditTextField> {
         spans.add(TextSpan(text: text.substring(start, matchStart), style: widget.style));
       }
 
-      // Add highlighted match
+      // Add highlighted match with GlobalKey for scrolling
       final isCurrentResult = matchIndex == currentResultIndex;
-      spans.add(TextSpan(
-        text: text.substring(matchStart, matchEnd),
-        style: widget.style.copyWith(
-          backgroundColor:
-              isCurrentResult ? Colors.orange.withValues(alpha: 0.9) : Colors.deepPurple.withValues(alpha: 0.6),
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
+      final matchKey = matchIndex < _matchKeys.length ? _matchKeys[matchIndex] : null;
+
+      spans.add(WidgetSpan(
+        child: Container(
+          key: matchKey,
+          decoration: BoxDecoration(
+            color: isCurrentResult ? Colors.orange.withValues(alpha: 0.9) : Colors.deepPurple.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(2),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 1),
+          child: Text(
+            text.substring(matchStart, matchEnd),
+            style: widget.style.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              backgroundColor: Colors.transparent,
+            ),
+          ),
         ),
       ));
 
@@ -503,6 +562,7 @@ class AppResultDetailWidget extends StatelessWidget {
   final ServerConversation conversation;
   final String searchQuery;
   final int currentResultIndex;
+  final Function(int)? onMatchCountChanged;
 
   const AppResultDetailWidget({
     super.key,
@@ -511,6 +571,7 @@ class AppResultDetailWidget extends StatelessWidget {
     required this.conversation,
     this.searchQuery = '',
     this.currentResultIndex = -1,
+    this.onMatchCountChanged,
   });
 
   @override
@@ -558,6 +619,7 @@ class AppResultDetailWidget extends StatelessWidget {
                         style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4),
                         searchQuery: searchQuery,
                         currentResultIndex: currentResultIndex,
+                        onMatchCountChanged: onMatchCountChanged,
                       ),
               ),
 
@@ -675,7 +737,8 @@ class AppResultDetailWidget extends StatelessWidget {
 class GetAppsWidgets extends StatelessWidget {
   final String searchQuery;
   final int currentResultIndex;
-  const GetAppsWidgets({super.key, this.searchQuery = '', this.currentResultIndex = -1});
+  final Function(int)? onMatchCountChanged;
+  const GetAppsWidgets({super.key, this.searchQuery = '', this.currentResultIndex = -1, this.onMatchCountChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -697,6 +760,7 @@ class GetAppsWidgets extends StatelessWidget {
                       conversation: provider.conversation,
                       searchQuery: searchQuery,
                       currentResultIndex: currentResultIndex,
+                      onMatchCountChanged: onMatchCountChanged,
                     ),
                   ],
                   const SizedBox(height: 8)

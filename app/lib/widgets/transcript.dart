@@ -29,6 +29,7 @@ class TranscriptWidget extends StatefulWidget {
   final VoidCallback? onTapWhenSearchEmpty;
   final Map<String, TextEditingController>? segmentControllers;
   final Map<String, FocusNode>? segmentFocusNodes;
+  final Function(int)? onMatchCountChanged;
 
   const TranscriptWidget({
     super.key,
@@ -49,6 +50,7 @@ class TranscriptWidget extends StatefulWidget {
     this.onTapWhenSearchEmpty,
     this.segmentControllers,
     this.segmentFocusNodes,
+    this.onMatchCountChanged,
   });
 
   @override
@@ -129,19 +131,30 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
 
   void _rebuildMatchKeys() {
     _matchKeys.clear();
-    if (widget.searchQuery.isEmpty) return;
+    if (widget.searchQuery.isEmpty) {
+      widget.onMatchCountChanged?.call(0);
+      return;
+    }
 
     final searchQuery = widget.searchQuery.toLowerCase();
     int globalMatchCount = 0;
 
     for (var segment in widget.segments) {
-      final text = _getDecodedText(segment.text).toLowerCase();
+      // Use edited text from controller if available, otherwise use original segment text
+      String text;
+      if (widget.segmentControllers?.containsKey(segment.id) == true) {
+        text = widget.segmentControllers![segment.id]!.text.toLowerCase();
+      } else {
+        text = _getDecodedText(segment.text).toLowerCase();
+      }
       final matches = RegExp(RegExp.escape(searchQuery), caseSensitive: false).allMatches(text);
       for (final _ in matches) {
         _matchKeys.add(GlobalKey());
         globalMatchCount++;
       }
     }
+
+    widget.onMatchCountChanged?.call(globalMatchCount);
   }
 
   @override
@@ -351,7 +364,13 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
 
     int globalMatchIndex = 0;
     for (int i = 0; i < segmentIndex; i++) {
-      final segmentText = _getDecodedText(widget.segments[i].text).toLowerCase();
+      // Use edited text from controller if available for counting matches
+      String segmentText;
+      if (widget.segmentControllers?.containsKey(widget.segments[i].id) == true) {
+        segmentText = widget.segmentControllers![widget.segments[i].id]!.text.toLowerCase();
+      } else {
+        segmentText = _getDecodedText(widget.segments[i].text).toLowerCase();
+      }
       final matches = RegExp(RegExp.escape(lowerQuery), caseSensitive: false).allMatches(segmentText);
       globalMatchIndex += matches.length;
     }
@@ -583,8 +602,9 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // Check if we have a controller for this segment (editable mode)
-                                    if (widget.segmentControllers != null &&
+                                    // Show highlighting during search, otherwise show TextField for editing
+                                    if (widget.searchQuery.isEmpty &&
+                                        widget.segmentControllers != null &&
                                         widget.segmentFocusNodes != null &&
                                         widget.segmentControllers!.containsKey(data.id) &&
                                         widget.segmentFocusNodes!.containsKey(data.id))
@@ -618,13 +638,17 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
                                           ),
                                           children: widget.searchQuery.isNotEmpty
                                               ? _highlightSearchMatchesWithKeys(
-                                                  _getDecodedText(data.text),
+                                                  widget.segmentControllers?.containsKey(data.id) == true
+                                                      ? widget.segmentControllers![data.id]!.text
+                                                      : _getDecodedText(data.text),
                                                   widget.searchQuery,
                                                   segmentIdx,
                                                 )
                                               : [
                                                   TextSpan(
-                                                    text: _getDecodedText(data.text),
+                                                    text: widget.segmentControllers?.containsKey(data.id) == true
+                                                        ? widget.segmentControllers![data.id]!.text
+                                                        : _getDecodedText(data.text),
                                                   )
                                                 ],
                                         ),

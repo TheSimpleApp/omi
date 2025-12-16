@@ -684,6 +684,20 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                     });
                                   }
                                 },
+                                onMatchCountChanged: (count) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (mounted) {
+                                      setState(() {
+                                        _totalSearchResults = count;
+                                        if (count > 0 && _currentSearchIndex == 0) {
+                                          _currentSearchIndex = 1;
+                                        } else if (count == 0) {
+                                          _currentSearchIndex = 0;
+                                        }
+                                      });
+                                    }
+                                  });
+                                },
                               ),
                               SummaryTab(
                                 searchQuery: _searchQuery,
@@ -696,6 +710,20 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                       _searchFocusNode.unfocus();
                                     });
                                   }
+                                },
+                                onMatchCountChanged: (count) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (mounted) {
+                                      setState(() {
+                                        _totalSearchResults = count;
+                                        if (count > 0 && _currentSearchIndex == 0) {
+                                          _currentSearchIndex = 1;
+                                        } else if (count == 0) {
+                                          _currentSearchIndex = 0;
+                                        }
+                                      });
+                                    }
+                                  });
                                 },
                               ),
                               ActionItemsTab(),
@@ -1004,12 +1032,14 @@ class SummaryTab extends StatelessWidget {
   final String searchQuery;
   final int currentResultIndex;
   final VoidCallback? onTapWhenSearchEmpty;
+  final Function(int)? onMatchCountChanged;
 
   const SummaryTab({
     super.key,
     this.searchQuery = '',
     this.currentResultIndex = -1,
     this.onTapWhenSearchEmpty,
+    this.onMatchCountChanged,
   });
 
   @override
@@ -1042,7 +1072,11 @@ class SummaryTab extends StatelessWidget {
                       const GetSummaryWidgets(),
                       data.item1
                           ? const ReprocessDiscardedWidget()
-                          : GetAppsWidgets(searchQuery: searchQuery, currentResultIndex: currentResultIndex),
+                          : GetAppsWidgets(
+                              searchQuery: searchQuery,
+                              currentResultIndex: currentResultIndex,
+                              onMatchCountChanged: onMatchCountChanged,
+                            ),
                       const SizedBox(height: 150)
                     ],
                   ),
@@ -1058,12 +1092,14 @@ class TranscriptWidgets extends StatelessWidget {
   final String searchQuery;
   final int currentResultIndex;
   final VoidCallback? onTapWhenSearchEmpty;
+  final Function(int)? onMatchCountChanged;
 
   const TranscriptWidgets({
     super.key,
     this.searchQuery = '',
     this.currentResultIndex = -1,
     this.onTapWhenSearchEmpty,
+    this.onMatchCountChanged,
   });
 
   @override
@@ -1120,6 +1156,7 @@ class TranscriptWidgets extends StatelessWidget {
                 onTapWhenSearchEmpty: onTapWhenSearchEmpty,
                 segmentControllers: provider.segmentControllers,
                 segmentFocusNodes: provider.segmentFocusNodes,
+                onMatchCountChanged: onMatchCountChanged,
                 editSegment: (segmentId, speakerId) {
                   final connectivityProvider = Provider.of<ConnectivityProvider>(context, listen: false);
                   if (!connectivityProvider.isConnected) {
