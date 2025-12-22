@@ -1085,7 +1085,8 @@ class SummaryTab extends StatelessWidget {
                               currentResultIndex: currentResultIndex,
                               onMatchCountChanged: onMatchCountChanged,
                             ),
-                      const SizedBox(height: 150)
+                      const GetGeolocationWidgets(),
+                      const SizedBox(height: 150),
                     ],
                   ),
                 ],
