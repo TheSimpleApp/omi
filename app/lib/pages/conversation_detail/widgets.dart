@@ -494,9 +494,6 @@ class _EditableMarkdownFieldState extends State<_EditableMarkdownField> {
       onDoubleTap: _handleDoubleTap,
       child: ConversationMarkdownWidget(
         content: markdownContent,
-        searchQuery: widget.searchQuery,
-        currentResultIndex: widget.currentResultIndex,
-        onMatchCountChanged: widget.onMatchCountChanged,
       ),
     );
   }

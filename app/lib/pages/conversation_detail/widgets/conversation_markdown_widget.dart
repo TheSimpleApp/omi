@@ -7,7 +7,6 @@ class ConversationMarkdownWidget extends StatefulWidget {
   final String searchQuery;
   final int currentResultIndex;
   final Function(ScrollController)? onScrollControllerReady;
-  final Function(int)? onMatchCountChanged;
 
   const ConversationMarkdownWidget({
     super.key,
@@ -15,7 +14,6 @@ class ConversationMarkdownWidget extends StatefulWidget {
     this.searchQuery = '',
     this.currentResultIndex = -1,
     this.onScrollControllerReady,
-    this.onMatchCountChanged,
   });
 
   @override
@@ -64,31 +62,6 @@ class _ConversationMarkdownWidgetState extends State<ConversationMarkdownWidget>
     _paragraphs = widget.content.split('\n').where((p) => p.trim().isNotEmpty).toList();
     _paragraphKeys.clear();
     _paragraphKeys.addAll(List.generate(_paragraphs.length, (index) => GlobalKey()));
-
-    // Count total matches and notify parent
-    if (widget.searchQuery.isNotEmpty) {
-      int totalMatches = 0;
-      final searchQuery = widget.searchQuery.toLowerCase();
-
-      for (final paragraph in _paragraphs) {
-        final paragraphText = paragraph.toLowerCase();
-        int startIndex = 0;
-        while (true) {
-          int index = paragraphText.indexOf(searchQuery, startIndex);
-          if (index == -1) break;
-          totalMatches++;
-          startIndex = index + 1;
-        }
-      }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onMatchCountChanged?.call(totalMatches);
-      });
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onMatchCountChanged?.call(0);
-      });
-    }
   }
 
   // Calculate which paragraph contains the current search result

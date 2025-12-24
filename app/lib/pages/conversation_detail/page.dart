@@ -904,7 +904,9 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
-                      _closeSearch();
+                      if (_searchQuery.isEmpty) {
+                        _closeSearch();
+                      }
                     },
                     child: Stack(
                       children: [
