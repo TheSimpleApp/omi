@@ -11,12 +11,14 @@ All endpoints verified working with live tests.
 
 1. [Overview](#overview)
 2. [Architecture](#architecture)
-3. [API Reference](#api-reference)
-4. [BuildShip Workflow Setup](#buildship-workflow-setup)
-5. [Omi App Configuration](#omi-app-configuration)
+3. [Best Models by Category](#best-models-by-category)
+4. [API Reference](#api-reference)
+5. [BuildShip Workflow Setup](#buildship-workflow-setup)
 6. [FFmpeg Audio Processing](#ffmpeg-audio-processing)
-7. [Testing](#testing)
-8. [Cost Estimates](#cost-estimates)
+7. [Omi App Configuration](#omi-app-configuration)
+8. [Testing](#testing)
+9. [Cost Estimates](#cost-estimates)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -26,59 +28,106 @@ This system allows you to generate AI content (meditations, music, images, video
 
 ### What You Can Generate
 
-| Content Type | Model Used | Output |
-|-------------|-----------|--------|
-| Guided Meditations | Hume Octave 2 (emotional TTS) | Public URL (MP3/WAV) |
-| Music/Songs | Stable Audio or ElevenLabs Music | Public URL (MP3/WAV) |
-| Images | Flux Pro | Public URL (PNG) |
-| Videos | Sora 2 | Public URL (MP4) |
+| Content Type | Recommended Model | Output Format | Quality |
+|-------------|------------------|---------------|---------|
+| Guided Meditations | Hume Octave 2 | Public URL (WAV) | Best emotional expression |
+| Voice/Narration | ElevenLabs v3 Alpha | Direct MP3 | Natural, clear |
+| Background Music | Stable Audio | Public URL (WAV) | 30s max, loop-able |
+| Ambient Sounds | ElevenLabs Music | Public URL (MP3) | Good for nature/ambiance |
+| Images | Flux Pro | Public URL (PNG) | High quality |
+| Videos | Sora 2 | Public URL (MP4) | Best quality |
 
-### Key Finding: All APIs Return Public URLs
+### Key Discovery: All APIs Return Public URLs
 
-**No BuildShip storage needed for basic generation** - AI/ML API returns CDN-hosted public URLs directly. BuildShip storage is only needed for FFmpeg post-processing (mixing voice + music).
+**No BuildShip storage needed for basic generation!** AI/ML API returns CDN-hosted public URLs directly. BuildShip Storage is only needed for FFmpeg post-processing (mixing voice + music).
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────┐
-│    Omi App      │
-│  (Voice Input)  │
-└────────┬────────┘
-         │ Memory Webhook (POST)
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    BuildShip Workflow                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐   │
-│  │ REST Trigger │ -> │   GPT-4o     │ -> │   Branch     │   │
-│  │ /omi-memory  │    │ (Detect Cmd) │    │ (Has Cmd?)   │   │
-│  └──────────────┘    └──────────────┘    └──────┬───────┘   │
-│                                                  │           │
-│                    ┌─────────────────────────────┼───────┐   │
-│                    │         Yes                 │       │   │
-│                    ▼                             ▼       ▼   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │ Meditation   │  │    Music     │  │   Image/     │       │
-│  │ (Hume TTS)   │  │ (Poll Loop)  │  │   Video      │       │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘       │
-│         │                 │                  │               │
-│         └─────────────────┼──────────────────┘               │
-│                           ▼                                  │
-│              ┌────────────────────────┐                      │
-│              │  Optional: FFmpeg Mix  │                      │
-│              │  (Voice + Music Duck)  │                      │
-│              └───────────┬────────────┘                      │
-│                          ▼                                   │
-│              ┌────────────────────────┐                      │
-│              │   Omi Notification     │                      │
-│              │   (Send Public URL)    │                      │
-│              └────────────────────────┘                      │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+                                    ┌─────────────────┐
+                                    │    Omi App      │
+                                    │  (Voice Input)  │
+                                    └────────┬────────┘
+                                             │ Memory Webhook (POST)
+                                             ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              BuildShip Workflow                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐   │
+│  │ REST Trigger │ -> │  Extract     │ -> │   GPT-4o     │ -> │   Branch     │   │
+│  │ /omi-memory  │    │  Transcript  │    │   Router     │    │ (Has Cmd?)   │   │
+│  └──────────────┘    └──────────────┘    └──────────────┘    └──────┬───────┘   │
+│                                                                      │           │
+│                                                    ┌─────────────────┼───────┐   │
+│                                                    │       Yes       │ No    │   │
+│                                                    ▼                 ▼       │   │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌────────────┐ │   │
+│  │  Meditation  │    │    Music     │    │   Image/     │    │    End     │ │   │
+│  │ (Hume TTS)   │    │ (Stable+Loop)│    │   Video      │    │            │ │   │
+│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘    └────────────┘ │   │
+│         │                   │                   │                            │   │
+│         └───────────┬───────┴───────────────────┘                            │   │
+│                     ▼                                                        │   │
+│         ┌─────────────────────┐                                              │   │
+│         │  FFmpeg Processing  │ (Optional - for polished meditations)        │   │
+│         │  - Ducking          │                                              │   │
+│         │  - Compression      │                                              │   │
+│         │  - Normalization    │                                              │   │
+│         └──────────┬──────────┘                                              │   │
+│                    ▼                                                         │   │
+│         ┌─────────────────────┐                                              │   │
+│         │  BuildShip Storage  │ (Only for FFmpeg output)                     │   │
+│         └──────────┬──────────┘                                              │   │
+│                    ▼                                                         │   │
+│         ┌─────────────────────┐                                              │   │
+│         │  Omi Notification   │                                              │   │
+│         │  (Public URL)       │                                              │   │
+│         └─────────────────────┘                                              │   │
+│                                                                              │   │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Best Models by Category
+
+### Voice/TTS Models (Tested December 25, 2024)
+
+| Model | Best For | Response Type | Quality | Speed |
+|-------|----------|---------------|---------|-------|
+| `hume/octave-2` | Meditations, emotional content | URL (WAV) | Best | Fast |
+| `elevenlabs/v3_alpha` | Natural narration | Direct MP3 | Excellent | Fast |
+| `elevenlabs/eleven_multilingual_v2` | Multi-language | Direct MP3 | Excellent | Fast |
+| `minimax/speech-2.6-hd` | General TTS | Direct MP3 | Very Good | Fast |
+| `openai/tts-1-hd` | Reliable fallback | URL (WAV) | Good | Fast |
+
+**Recommendation:** Use `hume/octave-2` for meditations (emotional, expressive), `elevenlabs/v3_alpha` for general narration.
+
+### Music Models
+
+| Model | Best For | Max Duration | Response Type |
+|-------|----------|--------------|---------------|
+| `stable-audio` | Instrumental, ambient | 30 seconds | Async (poll) |
+| `elevenlabs/eleven_music` | Ambient, nature sounds | ~10 seconds | Async (poll) |
+| `google/lyria2` | Experimental | Varies | Async (poll) |
+
+**Recommendation:** Use `stable-audio` for meditation background music. Loop with FFmpeg for longer durations.
+
+### Image Models
+
+| Model | Best For | Response Type |
+|-------|----------|---------------|
+| `flux/pro` | High quality images | Sync (URL) |
+| `flux/schnell` | Fast generation | Sync (URL) |
+
+### Video Models
+
+| Model | Best For | Response Type |
+|-------|----------|---------------|
+| `openai/sora-2` | High quality video | Async (poll) |
 
 ---
 
@@ -102,9 +151,9 @@ AIML_API_URL=https://api.aimlapi.com
 
 ---
 
-### 1. Voice Generation (Hume Octave 2)
+### Voice Generation Endpoints
 
-**Best for:** Guided meditations, emotional narration, expressive speech
+#### Hume Octave 2 (Best for Meditations)
 
 **Endpoint:** `POST https://api.aimlapi.com/tts`
 
@@ -112,7 +161,7 @@ AIML_API_URL=https://api.aimlapi.com
 ```json
 {
   "model": "hume/octave-2",
-  "text": "Close your eyes and take a slow breath in. And a longer breath out..."
+  "text": "Close your eyes and take a slow breath in..."
 }
 ```
 
@@ -128,37 +177,38 @@ AIML_API_URL=https://api.aimlapi.com
 }
 ```
 
-**Returns:** Public URL directly (synchronous)
+**Output:** Public URL directly (synchronous, no polling needed)
 
-**Alternative TTS Models:**
-- `elevenlabs/eleven_multilingual_v2` - Natural multilingual
-- `elevenlabs/v3_alpha` - Latest ElevenLabs
-- `minimax/speech-2.6-hd` - High quality
-- `openai/tts-1-hd` - OpenAI HD voices
+#### ElevenLabs v3 Alpha
 
----
+**Endpoint:** `POST https://api.aimlapi.com/tts`
 
-### 2. Music Generation (Async with Polling)
-
-**Best for:** Background music, soundtracks, ambient sounds
-
-**Step 1: Start Generation**
-
-**Endpoint:** `POST https://api.aimlapi.com/v2/generate/audio`
-
-**Request (Stable Audio - recommended for instrumental):**
+**Request:**
 ```json
 {
-  "model": "stable-audio",
-  "prompt": "Calm ambient meditation background music with soft piano and gentle nature sounds, peaceful and relaxing, 60 seconds"
+  "model": "elevenlabs/v3_alpha",
+  "text": "Your text here..."
 }
 ```
 
-**Request (ElevenLabs Music):**
+**Response:** Returns raw MP3 audio directly (not JSON). Save the response body as `.mp3` file.
+
+**Content-Type:** `audio/mpeg`
+
+---
+
+### Music Generation Endpoints
+
+#### Stable Audio (Recommended for Background Music)
+
+**Step 1 - Start Generation:**
+
+**Endpoint:** `POST https://api.aimlapi.com/v2/generate/audio`
+
 ```json
 {
-  "model": "elevenlabs/eleven_music",
-  "prompt": "Peaceful meditation background music"
+  "model": "stable-audio",
+  "prompt": "Peaceful ambient meditation music, soft piano, gentle pads, nature sounds, very calm and relaxing, no vocals"
 }
 ```
 
@@ -175,14 +225,11 @@ AIML_API_URL=https://api.aimlapi.com
 }
 ```
 
-**Step 2: Poll for Completion**
+**Step 2 - Poll for Completion:**
 
-**Endpoint:** `GET https://api.aimlapi.com/v2/generate/audio`
+**Endpoint:** `GET https://api.aimlapi.com/v2/generate/audio?generation_id=xxx`
 
-**Query Parameters:**
-```
-?generation_id=22e6dddb-235b-40ec-8a8a-cd9c8306f1f9:stable-audio
-```
+Poll every 5 seconds until status is "completed".
 
 **Response (when complete):**
 ```json
@@ -198,18 +245,14 @@ AIML_API_URL=https://api.aimlapi.com
 }
 ```
 
-**Polling Logic:**
-- Poll every 5-10 seconds
-- Max wait: 2-3 minutes for music
-- Status values: `queued`, `processing`, `completed`, `failed`
+**Note:** Stable Audio generates 30-second clips. Use FFmpeg looping for longer durations.
 
 ---
 
-### 3. Image Generation (Flux)
+### Image Generation
 
 **Endpoint:** `POST https://api.aimlapi.com/v1/images/generations`
 
-**Request:**
 ```json
 {
   "model": "flux/pro",
@@ -228,29 +271,6 @@ AIML_API_URL=https://api.aimlapi.com
   ]
 }
 ```
-
-**Returns:** Public URL directly (synchronous for most sizes)
-
-**Alternative Image Models:**
-- `flux/schnell` - Faster generation
-- `openai/dall-e-3` - OpenAI DALL-E
-
----
-
-### 4. Video Generation (Sora)
-
-**Endpoint:** `POST https://api.aimlapi.com/v1/videos/generations`
-
-**Request:**
-```json
-{
-  "model": "openai/sora-2",
-  "prompt": "A peaceful forest with gentle snow falling",
-  "duration": 5
-}
-```
-
-**Response:** Similar to music - returns generation_id, requires polling.
 
 ---
 
@@ -316,27 +336,33 @@ CONTENT TYPES:
 - image, picture, photo → type: "image"
 - video, animation, clip → type: "video"
 
+BEST MODELS (Use these for each type):
+- meditation: "hume/octave-2" (endpoint: "/tts", sync)
+- music: "stable-audio" (endpoint: "/v2/generate/audio", async)
+- image: "flux/pro" (endpoint: "/v1/images/generations", sync)
+- video: "openai/sora-2" (endpoint: "/v1/videos/generations", async)
+
 OUTPUT FORMAT (JSON only):
 {
   "found": true/false,
   "type": "meditation|music|image|video",
   "description": "extracted description",
-  "model": "hume/octave-2|stable-audio|flux/pro|openai/sora-2",
+  "model": "model_id",
   "endpoint": "/tts|/v2/generate/audio|/v1/images/generations|/v1/videos/generations",
   "method": "POST",
   "needs_polling": false/true,
   "request_body": { ...complete API request body... }
 }
 
-MEDITATION SPECIAL HANDLING:
-For meditation type, write a complete 1-2 minute meditation script including:
-- Opening breath work (3-4 breaths)
-- Body relaxation cues
-- Main visualization/theme from user description
-- Affirmations (3 "I am..." statements)
-- Closing breath and return
+MEDITATION SCRIPT GENERATION:
+For meditation type, write a complete 1-2 minute script including:
+- Opening: 3-4 breath cycles with "..." pauses
+- Body scan: Relax shoulders, jaw, belly
+- Main visualization based on user's description
+- 3 affirmations in "I am..." format
+- Closing breath and gentle return
 
-Include natural pauses indicated by "..." for pacing.
+Format the meditation text naturally with "..." for pauses.
 ```
 
 **User Prompt:** `{{transcript}}`
@@ -346,7 +372,6 @@ Include natural pauses indicated by "..." for pacing.
 ```javascript
 export default function parseResponse({ gpt_response }) {
   try {
-    // Handle markdown code blocks if present
     let jsonStr = gpt_response;
     if (jsonStr.includes('```json')) {
       jsonStr = jsonStr.split('```json')[1].split('```')[0];
@@ -382,23 +407,20 @@ export default function parseResponse({ gpt_response }) {
 ```javascript
 export default function handleResponse({ http_response, parsed }) {
   const contentType = parsed.type;
+  const responseHeaders = http_response.headers || {};
   
-  // Voice (Hume) returns URL directly
+  // Voice - Hume returns URL in JSON, ElevenLabs returns direct audio
   if (contentType === 'meditation') {
-    return {
-      ready: true,
-      url: http_response.audio.url,
-      type: 'audio'
-    };
+    if (http_response.audio && http_response.audio.url) {
+      return { ready: true, url: http_response.audio.url, type: 'audio' };
+    }
+    // For ElevenLabs (direct audio), would need to upload to storage first
+    return { ready: true, directAudio: true, type: 'audio' };
   }
   
   // Image returns URL directly
   if (contentType === 'image') {
-    return {
-      ready: true,
-      url: http_response.data[0].url,
-      type: 'image'
-    };
+    return { ready: true, url: http_response.data[0].url, type: 'image' };
   }
   
   // Music/Video need polling
@@ -414,11 +436,12 @@ export default function handleResponse({ http_response, parsed }) {
 
 #### Node 8: Poll Loop (for Music/Video)
 
-If `ready === false`, add a loop that:
-1. Waits 5 seconds
+If `ready === false`, create a loop that:
+1. Waits 5 seconds (use Delay node)
 2. Calls GET `https://api.aimlapi.com/v2/generate/audio?generation_id={{generation_id}}`
 3. Checks if `status === "completed"`
 4. Returns `audio_file.url` when complete
+5. Max 60 iterations (5 minutes)
 
 #### Node 9: Send Omi Notification
 
@@ -438,50 +461,69 @@ If `ready === false`, add a loop that:
 
 ### When to Use FFmpeg
 
-Use FFmpeg when you want to create polished meditation experiences by mixing voice with background music using "ducking" (lowering music when voice is present).
+Use FFmpeg to create polished meditation experiences:
+- Mix voice with background music
+- Apply ducking (music lowers when voice plays)
+- Add fade in/out transitions
+- Normalize loudness for consistent playback
 
-### FFmpeg Ducking Command
+### Professional FFmpeg Settings (Tested)
+
+#### Complete Professional Mix Command
 
 ```bash
-ffmpeg -i voice.mp3 -i background_music.mp3 \
-  -filter_complex "[1:a]volume=0.3[music];[0:a][music]sidechaincompress=threshold=0.02:ratio=4:attack=200:release=1000[ducked];[0:a][ducked]amix=inputs=2:duration=longest" \
-  -c:a libmp3lame -q:a 2 output.mp3
+ffmpeg -y -i voice.wav -i music.wav \
+  -filter_complex "
+    [0:a]acompressor=threshold=0.08:ratio=3:attack=10:release=200,highpass=f=80,lowpass=f=12000[voice];
+    [1:a]volume=0.18,afade=t=in:st=0:d=5[music_fade];
+    [music_fade]asplit=2[sc][bg];
+    [voice][sc]sidechaincompress=threshold=0.012:ratio=10:attack=100:release=2500:makeup=1[ducked];
+    [ducked][bg]amix=inputs=2:duration=first:dropout_transition=3[mixed];
+    [mixed]afade=t=out:st=128:d=5,loudnorm=I=-16:TP=-1.5:LRA=11[out]
+  " \
+  -map "[out]" -c:a libmp3lame -b:a 192k output.mp3
 ```
 
-### What This Does
+#### Filter Breakdown
 
-1. `volume=0.3` - Sets background music to 30% volume
-2. `sidechaincompress` - Ducks music when voice is detected
-   - `threshold=0.02` - Voice detection sensitivity
-   - `ratio=4` - How much to reduce music (4:1)
-   - `attack=200` - How fast to duck (200ms)
-   - `release=1000` - How fast to return (1000ms)
-3. `amix` - Combines both audio tracks
+| Filter | Purpose | Settings |
+|--------|---------|----------|
+| `acompressor` | Voice clarity | threshold=0.08, ratio=3, attack=10ms, release=200ms |
+| `highpass=f=80` | Remove rumble | Cut frequencies below 80Hz |
+| `lowpass=f=12000` | Remove hiss | Cut frequencies above 12kHz |
+| `volume=0.18` | Music level | 18% of original (subtle background) |
+| `afade=t=in:st=0:d=5` | Fade in | 5 seconds at start |
+| `sidechaincompress` | Ducking | threshold=0.012, ratio=10, attack=100ms, release=2500ms |
+| `amix` | Combine tracks | duration=first (match voice length) |
+| `afade=t=out` | Fade out | 5 seconds before end |
+| `loudnorm` | Broadcast standard | I=-16 LUFS, TP=-1.5 dB, LRA=11 |
 
-### BuildShip FFmpeg Node Setup
+### Music Looping (for longer meditations)
 
-1. Add **FFmpeg Node** after getting both voice and music URLs
-2. Configure inputs:
-   - Input 1: Voice URL from Hume
-   - Input 2: Music URL from Stable Audio
-3. Set filter: `[1:a]volume=0.3[m];[0:a][m]sidechaincompress=threshold=0.02:ratio=4:attack=200:release=1000[d];[0:a][d]amix=inputs=2:duration=longest`
-4. Output format: MP3
-
-### Alternative: Simple Mix (No Ducking)
+Stable Audio generates 30-second clips. Loop for longer content:
 
 ```bash
-ffmpeg -i voice.mp3 -i background_music.mp3 \
+# Loop music 5 times with crossfade, create 2:15 version
+ffmpeg -y -stream_loop 5 -i music.wav -t 135 \
+  -af "afade=t=in:st=0:d=2,afade=t=out:st=130:d=5" \
+  music_looped.wav
+```
+
+### Simple Mix (No Advanced Processing)
+
+```bash
+ffmpeg -y -i voice.wav -i music.wav \
   -filter_complex "[1:a]volume=0.2[m];[0:a][m]amix=inputs=2:duration=first" \
-  -c:a libmp3lame -q:a 2 output.mp3
+  -c:a libmp3lame -b:a 192k output.mp3
 ```
 
-### BuildShip Storage Upload
+### BuildShip FFmpeg Node Configuration
 
-After FFmpeg processing:
-1. Add **Storage Upload Node**
-2. Input: FFmpeg output file
-3. Get public URL from BuildShip CDN
-4. Send this URL in notification
+1. Add **FFmpeg Node** to workflow
+2. **Input 1:** Voice URL from Hume
+3. **Input 2:** Music URL from Stable Audio
+4. **Command:** Use the professional mix command above
+5. **Output:** Upload result to BuildShip Storage
 
 ---
 
@@ -497,12 +539,14 @@ After FFmpeg processing:
 
 **Memory Creation Webhook URL:**
 ```
-https://0d2wdz.buildship.run/omi-memory
+https://YOUR_BUILDSHIP_ENDPOINT/omi-memory
 ```
+
+Example: `https://0d2wdz.buildship.run/omi-memory`
 
 ### Webhook Payload Format
 
-Omi sends this payload after each conversation:
+Omi sends this payload after each conversation ends:
 
 ```json
 {
@@ -519,7 +563,7 @@ Omi sends this payload after each conversation:
     },
     {
       "text": "include breathing exercises and gratitude",
-      "speaker": "SPEAKER_00",
+      "speaker": "SPEAKER_00", 
       "speakerId": 0,
       "is_user": true,
       "start": 5.0,
@@ -547,20 +591,21 @@ Omi sends this payload after each conversation:
 
 ### Voice Command Examples
 
-| What You Say | Detected As | Model |
-|--------------|------------|-------|
+| What You Say | Detected Type | Model Used |
+|--------------|---------------|------------|
 | "command generate meditation about stress relief command execute" | meditation | hume/octave-2 |
 | "create a song about my morning walk" | music | stable-audio |
 | "make me an image of a sunset over mountains" | image | flux/pro |
 | "I want a meditation for better sleep" | meditation | hume/octave-2 |
 | "generate video of a peaceful forest" | video | openai/sora-2 |
+| "create a guided breathing exercise for anxiety" | meditation | hume/octave-2 |
 
 ### Local Testing Script
 
 ```python
 import os
 import requests
-import json
+import time
 from dotenv import load_dotenv
 
 load_dotenv('backend/.env')
@@ -573,15 +618,18 @@ headers = {
 
 # Test Hume Octave 2 TTS
 meditation_text = """
-Close your eyes and take a slow breath in.
+Close your eyes... and take a slow breath in.
 And a longer breath out.
 Feel your body relax.
 You are safe. You are supported.
+I have enough. I am supported.
 Take one more breath in.
 And out.
 When you're ready, open your eyes.
 """
 
+# Generate voice
+print("Generating voice with Hume Octave 2...")
 response = requests.post(
     "https://api.aimlapi.com/tts",
     headers=headers,
@@ -590,13 +638,58 @@ response = requests.post(
 
 if response.status_code == 201:
     url = response.json()['audio']['url']
-    print(f"Audio URL: {url}")
+    print(f"Voice URL: {url}")
+    
+    # Download
+    audio = requests.get(url).content
+    with open('test_voice.wav', 'wb') as f:
+        f.write(audio)
+    print(f"Saved: test_voice.wav ({len(audio)} bytes)")
+
+# Generate music
+print("\nGenerating music with Stable Audio...")
+response = requests.post(
+    "https://api.aimlapi.com/v2/generate/audio",
+    headers=headers,
+    json={
+        "model": "stable-audio",
+        "prompt": "Peaceful ambient meditation music, soft piano"
+    }
+)
+
+if response.status_code == 201:
+    gen_id = response.json()['id']
+    print(f"Generation ID: {gen_id}")
+    
+    # Poll for completion
+    while True:
+        time.sleep(5)
+        status = requests.get(
+            "https://api.aimlapi.com/v2/generate/audio",
+            headers=headers,
+            params={"generation_id": gen_id}
+        ).json()
+        
+        print(f"Status: {status['status']}")
+        if status['status'] == 'completed':
+            music_url = status['audio_file']['url']
+            audio = requests.get(music_url).content
+            with open('test_music.wav', 'wb') as f:
+                f.write(audio)
+            print(f"Saved: test_music.wav ({len(audio)} bytes)")
+            break
+        elif status['status'] == 'failed':
+            print("Generation failed")
+            break
+
+print("\nNow run FFmpeg to mix:")
+print('ffmpeg -y -i test_voice.wav -i test_music.wav -filter_complex "[1:a]volume=0.2[m];[0:a][m]amix=inputs=2:duration=first" -c:a libmp3lame output.mp3')
 ```
 
 ### Send Test Webhook
 
 ```bash
-curl -X POST "https://0d2wdz.buildship.run/omi-memory?uid=test_user" \
+curl -X POST "https://YOUR_BUILDSHIP_ENDPOINT/omi-memory?uid=test_user" \
   -H "Content-Type: application/json" \
   -d '{
     "id": "test_memory_001",
@@ -612,28 +705,29 @@ curl -X POST "https://0d2wdz.buildship.run/omi-memory?uid=test_user" \
 
 ## Cost Estimates
 
-### BuildShip
+### BuildShip Pricing
 
 | Tier | Executions | Storage | Price |
 |------|-----------|---------|-------|
 | Free | 100/day | 100MB | $0 |
 | Starter | 500K/month | 10GB | $19/mo |
 
-### AI/ML API (Estimated)
+### AI/ML API Pricing (Estimated)
 
-| Model | Cost | Notes |
-|-------|------|-------|
-| Hume Octave 2 | ~$0.01-0.05/call | Per meditation |
-| Stable Audio | ~$0.05-0.10/call | 25K credits per call |
-| ElevenLabs Music | ~$0.03-0.05/call | 12K credits per call |
-| Flux Pro | ~$0.03-0.05/call | Per image |
-| Sora 2 | ~$0.10-0.50/call | Per video |
-| GPT-4o | ~$0.01/call | Command detection |
+| Model | Cost per Call | Notes |
+|-------|---------------|-------|
+| Hume Octave 2 | ~$0.01-0.05 | Per meditation |
+| ElevenLabs v3 | ~$0.01-0.03 | Per narration |
+| Stable Audio | ~25K credits | Per 30s track |
+| ElevenLabs Music | ~12K credits | Per track |
+| Flux Pro | ~$0.03-0.05 | Per image |
+| Sora 2 | ~$0.10-0.50 | Per video |
+| GPT-4o | ~$0.01 | Per routing call |
 
 ### Monthly Estimate (Personal Use)
 
-| Usage | Cost |
-|-------|------|
+| Usage | Estimated Cost |
+|-------|----------------|
 | 5 meditations/day | ~$5-15/mo |
 | 2 songs/week | ~$2-5/mo |
 | 5 images/week | ~$3-5/mo |
@@ -643,54 +737,62 @@ curl -X POST "https://0d2wdz.buildship.run/omi-memory?uid=test_user" \
 
 ## Verified Test Results (December 25, 2024)
 
-### Hume Octave 2 TTS
-- **Status:** ✅ Working
-- **Endpoint:** POST `https://api.aimlapi.com/tts`
-- **Response:** Returns public CDN URL directly
-- **Test URL:** `https://cdn.aimlapi.com/generations/tts/hume-tts-d327afc7-xxx.wav`
+### TTS Model Comparison
 
-### Stable Audio
-- **Status:** ✅ Working
-- **Endpoint:** POST `https://api.aimlapi.com/v2/generate/audio`
-- **Polling:** GET with `?generation_id=xxx`
-- **Response:** Returns public CDN URL after ~30-60 seconds
-- **Test URL:** `https://cdn.aimlapi.com/flamingo/files/xxx.wav`
+| Model | Status | Response Type | File Size (short test) |
+|-------|--------|---------------|------------------------|
+| hume/octave-2 | Working | URL (WAV) | 137 KB |
+| elevenlabs/v3_alpha | Working | Direct MP3 | 141 KB |
+| elevenlabs/eleven_multilingual_v2 | Working | Direct MP3 | 107 KB |
+| minimax/speech-2.6-hd | Working | Direct MP3 | 175 KB |
+| openai/tts-1-hd | Working | URL (WAV) | 136 KB |
 
-### ElevenLabs Music
-- **Status:** ✅ Working
-- **Same endpoint as Stable Audio
-- **Test URL:** `https://cdn.aimlapi.com/generations/hippopotamus/xxx.mp3`
+### Music Generation
 
-### BuildShip Webhook
-- **Status:** ✅ Working
-- **Endpoint:** `https://0d2wdz.buildship.run/omi-memory`
-- **Test:** Successfully received and processed payload
+| Model | Status | Duration | File Size |
+|-------|--------|----------|-----------|
+| stable-audio | Working | 30 seconds | 5.2 MB |
+| elevenlabs/eleven_music | Working | ~10 seconds | 161 KB |
+
+### FFmpeg Professional Mix
+
+| Mix Type | Duration | File Size |
+|----------|----------|-----------|
+| Final meditation (Hume + Stable) | 2:12 | 3.04 MB |
+| Final meditation (ElevenLabs) | 0:34 | 0.79 MB |
 
 ---
 
-## Available Models (December 2024)
+## Troubleshooting
 
-### Voice/TTS
-- `hume/octave-2` - Emotional, expressive (recommended for meditations)
-- `elevenlabs/eleven_multilingual_v2` - Natural multilingual
-- `elevenlabs/v3_alpha` - Latest ElevenLabs
-- `minimax/speech-2.6-hd` - High definition
-- `minimax/speech-2.6-turbo` - Fast
-- `openai/tts-1-hd` - OpenAI HD
-- `openai/gpt-4o-mini-tts` - GPT-4o Mini TTS
+### "Cannot POST /v1/audio/speech"
+Use `/tts` endpoint instead. The `/v1/audio/speech` endpoint doesn't exist.
 
-### Music
-- `stable-audio` - Stability AI (recommended for instrumental)
-- `elevenlabs/eleven_music` - ElevenLabs
-- `minimax/music-2.0` - MiniMax (requires lyrics)
-- `google/lyria2` - Google Lyria
+### Music generation stuck at "queued"
+- Poll with GET request to `/v2/generate/audio?generation_id=xxx`
+- Note: Use query parameter, not path parameter
+- Max wait: 2-3 minutes
 
-### Images
-- `flux/pro` - High quality (recommended)
-- `flux/schnell` - Fast generation
+### No command detected
+Ensure voice command includes trigger phrases:
+- "command generate ... command execute"
+- "create a [type] about..."
+- "make me a [type]..."
+- "generate [type]..."
 
-### Video
-- `openai/sora-2` - OpenAI Sora
+### ElevenLabs returns binary instead of JSON
+This is expected. ElevenLabs models return raw MP3 audio directly. Check `Content-Type: audio/mpeg` header and save response body as `.mp3`.
+
+### FFmpeg errors
+- Ensure both audio files exist before mixing
+- Use `-y` flag to overwrite existing files
+- Check file paths are correct (no spaces without quotes)
+
+### Music too short for meditation
+Use FFmpeg looping:
+```bash
+ffmpeg -stream_loop 5 -i music.wav -t 135 music_looped.wav
+```
 
 ---
 
@@ -699,30 +801,23 @@ curl -X POST "https://0d2wdz.buildship.run/omi-memory?uid=test_user" \
 - [ ] Get AI/ML API key from https://aimlapi.com
 - [ ] Create BuildShip account at https://buildship.com
 - [ ] Add `AIML_API_KEY` to BuildShip secrets
-- [ ] Create workflow with all nodes
+- [ ] Add `OPENAI_API_KEY` to BuildShip secrets (for GPT-4o routing)
+- [ ] Create workflow with all nodes (see Node setup above)
 - [ ] Enable Omi Developer Mode
 - [ ] Set Memory Webhook URL to your BuildShip endpoint
-- [ ] Test with voice command: "create a meditation about gratitude"
+- [ ] Test with: "command generate meditation about gratitude command execute"
 
 ---
 
-## Troubleshooting
+## File Reference
 
-### "Cannot POST /v1/audio/speech"
-Use `/tts` endpoint for Hume Octave 2, not `/v1/audio/speech`.
-
-### Music generation stuck at "queued"
-Poll the status endpoint with GET request and `generation_id` query parameter.
-
-### No command detected
-Ensure your voice command includes trigger words like "command generate", "create a", "make me", etc.
-
-### FFmpeg errors
-Ensure both audio files are downloaded before mixing. Use `-y` flag to overwrite existing files.
+| File | Purpose |
+|------|---------|
+| `CreatorSetup.md` | This documentation |
+| `backend/.env` | Environment variables (AIML_API_KEY, AIML_API_URL) |
 
 ---
 
-**Created by:** Voice Command Content Generator
+**Created by:** Voice Command Content Generator System
 **Last Tested:** December 25, 2024
 **All endpoints verified working**
-
