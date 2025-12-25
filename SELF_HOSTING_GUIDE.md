@@ -142,7 +142,7 @@ ngrok config add-authtoken YOUR_NGROK_TOKEN_HERE
 ### 2.4 Verify Installations
 
 ```powershell
-python --version   # Should show 3.8 or higher
+python --version   # Should show 3.12 (Python 3.13+ is too new - ML packages like torch don't support it yet)
 git --version
 ffmpeg -version
 gcloud --version
@@ -228,8 +228,9 @@ cd C:\Users\dotso\OneDrive\Documents\GitHub\omi\backend
 ### 4.2 Create Virtual Environment
 
 ```powershell
-# Create virtual environment
-python -m venv venv
+# Create virtual environment with Python 3.12
+py -3.12 -m venv venv
+# If Python 3.12 is not installed, download from: https://www.python.org/downloads/release/python-3120/
 
 # Activate virtual environment
 .\venv\Scripts\activate
@@ -331,7 +332,7 @@ INFO:     Application startup complete.
 **If backend won't start:**
 - Check all API keys in `.env` are correct
 - Ensure virtual environment is activated
-- Check Python version: `python --version` (should be 3.8+)
+- Check Python version: `python --version` (should be 3.12 - Python 3.13+ is too new for ML packages)
 - Look at error messages in terminal
 
 **If ngrok shows "tunnel not found":**
@@ -579,7 +580,7 @@ If you see errors, check:
 ### Backend won't start
 - ✅ Check all API keys in `.env` are correct
 - ✅ Ensure virtual environment is activated (`(venv)` in prompt)
-- ✅ Check Python version: `python --version` (should be 3.8+)
+- ✅ Check Python version: `python --version` (should be 3.12 - Python 3.13+ is too new for ML packages)
 - ✅ Look at error messages in terminal
 - ✅ Verify Firebase authentication: `gcloud auth list`
 
