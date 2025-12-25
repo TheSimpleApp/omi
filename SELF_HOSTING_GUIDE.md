@@ -66,9 +66,9 @@ Before writing any code, set up these free/trial accounts:
 5. Select "Free" tier
 6. Click "Create"
 7. **Copy and save:**
-   - `REDIS_DB_HOST` (e.g., `omi-redis-12345.upstash.io`)
-   - `REDIS_DB_PORT` (usually `6379`)
-   - `REDIS_DB_PASSWORD` (long password string)
+- `REDIS_DB_HOST` (e.g., `omi-redis-12345.upstash.io`)
+- `REDIS_DB_PORT` (usually `6379`)
+- `REDIS_DB_PASSWORD` (long password string)
 
 ### 1.5 Pinecone (Vector Database)
 
@@ -77,10 +77,10 @@ Before writing any code, set up these free/trial accounts:
 3. Go to "Indexes" section
 4. Click "Create Index"
 5. Configure:
-   - **Name**: `omi-vectors`
-   - **Dimensions**: `1536` (for OpenAI embeddings)
-   - **Metric**: `cosine`
-   - **Pod Type**: `s1.x1` (free tier)
+- **Name**: `omi-vectors`
+- **Dimensions**: `1536` (for OpenAI embeddings)
+- **Metric**: `cosine`
+- **Pod Type**: `s1.x1` (free tier)
 6. Click "Create Index"
 7. Go to "API Keys" section
 8. **Copy and save your API Key**
@@ -93,8 +93,8 @@ Before writing any code, set up these free/trial accounts:
 4. **Copy your auth token** (you'll use this in Phase 2)
 5. Go to "Cloud Edge" → "Domains"
 6. If you have a free static domain, **note the domain name**
-   - Format: `something.ngrok-free.app`
-   - If you don't have one, you can use dynamic URLs (less convenient)
+- Format: `something.ngrok-free.app`
+- If you don't have one, you can use dynamic URLs (less convenient)
 
 ---
 
@@ -179,16 +179,16 @@ This will open a browser window for authentication. After logging in, credential
 Go to [Google Cloud Console API Library](https://console.cloud.google.com/apis/library) and enable:
 
 1. **Cloud Resource Manager API**
-   - Search for "Cloud Resource Manager API"
-   - Click "Enable"
+- Search for "Cloud Resource Manager API"
+- Click "Enable"
 
 2. **Firebase Management API**
-   - Search for "Firebase Management API"
-   - Click "Enable"
+- Search for "Firebase Management API"
+- Click "Enable"
 
 3. **Cloud Firestore API**
-   - Search for "Cloud Firestore API"
-   - Click "Enable"
+- Search for "Cloud Firestore API"
+- Click "Enable"
 
 **Note**: These APIs may take a few minutes to enable.
 
@@ -202,15 +202,15 @@ Go to [Google Cloud Console API Library](https://console.cloud.google.com/apis/l
 **Create first index:**
 - Collection ID: `dev_api_keys`
 - Fields:
-  - `user_id` - Ascending
-  - `created_at` - Descending
+- `user_id` - Ascending
+- `created_at` - Descending
 - Click "Create"
 
 **Create second index:**
 - Collection ID: `mcp_api_keys`
 - Fields:
-  - `user_id` - Ascending
-  - `created_at` - Descending
+- `user_id` - Ascending
+- `created_at` - Descending
 - Click "Create"
 
 **Note**: Index creation may take a few minutes.
