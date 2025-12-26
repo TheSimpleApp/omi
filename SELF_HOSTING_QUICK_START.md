@@ -85,4 +85,3 @@ Fill these in your `backend/.env`:
 **Need help?**
 - See full guide: `SELF_HOSTING_GUIDE.md`
 - Discord: http://discord.omi.me
-

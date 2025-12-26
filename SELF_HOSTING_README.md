@@ -74,4 +74,3 @@ Before starting, ensure you have:
 ---
 
 **Ready to start?** Open `SELF_HOSTING_GUIDE.md` and begin with Phase 1! 🎉
-

@@ -202,3 +202,4 @@ app/android/.kotlin/
 # OpenMemory - IDE/Assistant specific rules
 .cursor\rules\openmemory.mdc
 .cursor\rules\openmemory.mdc
+.cursor/rules/openmemory.mdc
